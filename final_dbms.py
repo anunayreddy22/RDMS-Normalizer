@@ -498,53 +498,36 @@ def convert_to_4NF(FD, Key, MVD, tables):
         
     return merged_dict
 
-# Function used to convert the given table to Fifth Normal Form (5NF)
+# Function to convert the given table to Fifth Normal Form (5NF)
 def convert_to_5NF(FD, Key, MVD, tables):
     # Create a dictionary to represent tables in 5NF
     new_tables = {}
-
-    # Create sets to track keys and attributes
-    key = set(Key)
-    attributes = set()  # Initialize attributes as an empty set
-    attributes.update(key)  # Add elements of key to attributes
-    #attributes = set(attributes)
-
-    # Extract attributes from FDs and MVDs
-    for fd in FD:
-        left, right = fd.split("->")
-        attributes.update(map(str.strip, right.split(',')))
+    table_index = len(tables)
 
     for mvd in MVD:
         left, right = mvd.split("->>")
-        attributes.update(map(str.strip, left.split(',')))
-        attributes.update(map(str.strip, right.split(',')))
+        left = left.strip().split(',')
+        right = right.strip().split(',')
 
-    # Create new tables for attributes
-    for attr in attributes:
-        new_tables[attr] = []
+        # Check if there exists a decomposition for this MVD
+        for table_name, attrs in tables.items():
+            if set(left).issubset(set(attrs)) and set(right).issubset(set(attrs)):
+                # Create a new table for the MVD
+                new_table_name = f"Decomposed_{table_index}"
+                new_tables[new_table_name] = left + right
+                table_index += 1
 
-    # Distribute data from the original tables
-    for table in tables:
-        for attr in attributes:
-            if attr in table:
-                new_table = {attr: table[attr]}
-                new_tables[attr].append(new_table)
+                # Remove the decomposed attributes from the original table
+                tables[table_name] = [attr for attr in attrs if attr not in right]
 
-    # Perform natural join on new tables
-    for attr1, attr2 in combinations(attributes, 2):
-        new_table = {}
-        new_table[attr1] = []
-        new_table[attr2] = []
+    # Merge the new decomposed tables with the original tables
+    tables.update(new_tables)
 
-        for data1, data2 in zip(new_tables[attr1], new_tables[attr2]):
-            if data1[attr1] == data2[attr2]:
-                new_table[attr1].append(data1[attr1])
-                new_table[attr2].append(data2[attr2])
+    # Remove duplicate attributes in each table
+    for table_name, attrs in tables.items():
+        tables[table_name] = list(set(attrs))
 
-        new_tables[f"{attr1}_{attr2}"] = new_table
-
-    return new_tables
-
+    return tables
 
 # Function used to generate SQL queries
 def generate_sql_queries(FD, Key, tables, data_types):
